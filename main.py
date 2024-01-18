@@ -29,7 +29,7 @@ class VesselConfig(Config):
 
     NAME = "vessels"
     GPU_COUNT = 1
-    IMAGES_PER_GPU = 8
+    IMAGES_PER_GPU = 2
     NUM_CLASSES = 1 + 1 # background + vessel(s)
     IMAGE_MIN_DIM = 256
     IMAGE_MAX_DIM = 256
@@ -90,7 +90,7 @@ class VesselDataset(utils.Dataset):
         mask_name = "m" + os.path.basename(info["path"])[1:]
         mask_path = os.path.join(mask_dir, mask_name)
         #Read mask
-        mask = cv2.imread(mask_path)[:,:,0].astype(bool)
+        mask = cv2.imread(mask_path)[:,:,:].astype(bool)
         #Class ID array
         class_id_array = np.ones([mask.shape[-1]], dtype=np.int32)
 
