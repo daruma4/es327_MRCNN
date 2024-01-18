@@ -13,6 +13,8 @@ import mrcnn.visualize as visualize
 ROOT_DIR = os.getcwd()
 # Local path to trained weights file
 COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
+# Path to save logs and trained model
+DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 
 ############################################################
 #  Configurations
@@ -33,7 +35,7 @@ class VesselConfig(Config):
     IMAGE_MAX_DIM = 256
 
     #Hyper Parameters
-    LEARNING_RATE = 0.001
+    # LEARNING_RATE = 0.001
     STEPS_PER_EPOCH = 100
     VALIDATION_STEPS = 5
 
@@ -47,7 +49,7 @@ class VesselDataset(utils.Dataset):
     Args:
         utils (_type_): _description_
     """
-    def load_images(self, dataset_dir):
+    def load_images(self, dataset_dir, is_train: bool):
         """_summary_
 
         Args:
@@ -60,7 +62,11 @@ class VesselDataset(utils.Dataset):
         image_ids = next(os.walk(os.path.join(os.getcwd(), dataset_dir)))[2]
 
         #Add images
-        for image_id in image_ids:
+        for idx, image_id in enumerate(image_ids):
+            if is_train and idx >= int(len(image_ids)*0.75):
+                continue
+            if not is_train and idx < int(len(image_ids)*0.75):
+                continue
             self.add_image(
                 "vessels",
                 image_id=image_id,
@@ -91,13 +97,21 @@ class VesselDataset(utils.Dataset):
         #Return mask and the corresponding class ID array
         return mask, class_id_array
 
+############################################################
+#  Run
+############################################################
+
 config = VesselConfig()
-dataset = VesselDataset()
-dataset.load_images("raws")
-dataset.prepare()
-# mask, class_ids = dataset.load_mask(0)
-# visualize.display_top_masks(dataset.load_image(0), mask, class_ids, dataset.class_names, limit=1)
-# image, image_meta, class_ids, bbox, mask = modellib.load_image_gt(
-#         dataset, config, 0, use_mini_mask=False)
-# visualize.display_instances(image, bbox, mask, class_ids, dataset.class_names,
-#                             show_bbox=False)
+dataset_train = VesselDataset()
+dataset_train.load_images("raws", is_train=True)
+dataset_train.prepare()
+dataset_val = VesselDataset()
+dataset_val.load_images("raws", is_train=False)
+dataset_val.prepare()
+
+model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR) #Create MaskRCNN model object
+model.load_weights("mask_rcnn_coco.h5", by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask"]) #Load COCO weights
+
+#Train
+model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=20, layers='heads') #Train only head layers
+# model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=90, layers='all') #Train all layers
