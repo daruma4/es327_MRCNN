@@ -84,7 +84,7 @@ class VesselDataset(utils.Dataset):
         mask_name = "m" + os.path.basename(info["path"])[1:]
         mask_path = os.path.join(mask_dir, mask_name)
         #Read mask
-        mask = cv2.imread(mask_path)
+        mask = cv2.imread(mask_path)[:,:,0].astype(np.bool)
         #Class ID array
         class_id_array = np.ones([mask.shape[-1]], dtype=np.int32)
 
