@@ -58,7 +58,7 @@ class VesselDataset(utils.Dataset):
     Args:
         utils (_type_): _description_
     """
-    def load_images(self, dataset_dir, is_train: bool):
+    def load_dataset(self, dataset_dir, is_train: bool):
         """Load training and validation images from 
 
         Args:
@@ -77,9 +77,12 @@ class VesselDataset(utils.Dataset):
                 continue
             if not is_train and idx < int(len(image_ids)*0.75):
                 continue
+            mask_dir = os.path.join(ROOT_DIR, "masks")
+            mask_file_name = "m" + image_id[1:]
             self.add_image(
                 source="vessels",
                 image_id=image_id,
+                mask_path=os.path.join(mask_dir, mask_file_name),
                 path=os.path.join(dataset_dir, image_id)
             )
     
@@ -92,14 +95,12 @@ class VesselDataset(utils.Dataset):
         Returns:
             _type_: _description_
         """
-        #Get image info
-        info = self.image_info[image_id]
-        #Setup mask directory
-        mask_dir = os.path.join(os.path.dirname(os.path.dirname(info["path"])), "masks")
-        mask_name = "m" + os.path.basename(info["path"])[1:]
-        mask_path = os.path.join(mask_dir, mask_name)
+        #Get mask_path
+        mask_path = self.image_info[image_id]["mask_path"]
         #Read mask
-        mask = cv2.imread(mask_path)[:,:,:].astype(np.uint8)
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE).astype(np.uint8)
+        #Must keep the [H,W,x] dimensions!
+        mask = np.expand_dims(mask, axis=-1)
         #Class ID array
         class_id_array = np.ones([mask.shape[-1]], dtype=np.int32)
 
@@ -123,7 +124,8 @@ class VesselDataset(utils.Dataset):
         """
         # Load image
         image = cv2.imread(self.image_info[image_id]['path'], cv2.IMREAD_GRAYSCALE)
-        image = image[..., np.newaxis]
+        #Must keep the [H,W,x] dimensions!
+        image = np.expand_dims(image, axis=-1)
         return image
 ############################################################
 #  Run
@@ -133,11 +135,11 @@ config = VesselConfig()
 
 #Training dataset
 dataset_train = VesselDataset()
-dataset_train.load_images(DATASET_DIR, is_train=True)
+dataset_train.load_dataset(DATASET_DIR, is_train=True)
 dataset_train.prepare()
 #Validation dataset
 dataset_val = VesselDataset()
-dataset_val.load_images(DATASET_DIR, is_train=False)
+dataset_val.load_dataset(DATASET_DIR, is_train=False)
 dataset_val.prepare()
 
 #Create MaskRCNN model object
