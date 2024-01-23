@@ -83,7 +83,7 @@ class VesselDataset(utils.Dataset):
                 source="vessels",
                 image_id=image_id,
                 mask_path=os.path.join(mask_dir, mask_file_name),
-                path=os.path.join(dataset_dir, image_id)
+                image_path=os.path.join(dataset_dir, image_id)
             )
     
     def load_mask(self, image_id: int):
@@ -95,10 +95,8 @@ class VesselDataset(utils.Dataset):
         Returns:
             _type_: _description_
         """
-        #Get mask_path
-        mask_path = self.image_info[image_id]["mask_path"]
         #Read mask
-        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE).astype(np.uint8)
+        mask = cv2.imread(self.image_info[image_id]["mask_path"], cv2.IMREAD_GRAYSCALE).astype(np.uint8)
         #Must keep the [H,W,x] dimensions!
         mask = np.expand_dims(mask, axis=-1)
         #Class ID array
@@ -123,7 +121,7 @@ class VesselDataset(utils.Dataset):
         """Load the specified image and return a [H,W,1] Numpy array.
         """
         # Load image
-        image = cv2.imread(self.image_info[image_id]['path'], cv2.IMREAD_GRAYSCALE)
+        image = cv2.imread(self.image_info[image_id]["image_path"], cv2.IMREAD_GRAYSCALE)
         #Must keep the [H,W,x] dimensions!
         image = np.expand_dims(image, axis=-1)
         return image
