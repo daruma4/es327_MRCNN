@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Import Mask RCNN
 from mrcnn.config import Config
@@ -90,12 +91,12 @@ class VesselDataset(utils.Dataset):
         mask_name = "m" + os.path.basename(info["path"])[1:]
         mask_path = os.path.join(mask_dir, mask_name)
         #Read mask
-        mask = cv2.imread(mask_path)[:,:,:].astype(bool)
+        mask = cv2.imread(mask_path)[:,:,:].astype(np.uint8)
         #Class ID array
-        class_id_array = np.ones([mask.shape[-1]], dtype=np.int32)
+        class_id_array = np.array([self.class_names.index("vessel")], dtype=np.int32)
 
         #Return mask and the corresponding class ID array
-        return mask, class_id_array
+        return mask.astype(bool), class_id_array
 
 ############################################################
 #  Run
@@ -105,13 +106,22 @@ config = VesselConfig()
 dataset_train = VesselDataset()
 dataset_train.load_images("raws", is_train=True)
 dataset_train.prepare()
-dataset_val = VesselDataset()
-dataset_val.load_images("raws", is_train=False)
-dataset_val.prepare()
+test_image = dataset_train.load_image(0)
+plt.imshow(test_image)
+plt.show()
+test_mask, class_id_array = dataset_train.load_mask(0)
+print(class_id_array)
+# plt.imshow(test_mask)
+# plt.show()
 
-model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR) #Create MaskRCNN model object
-model.load_weights("mask_rcnn_coco.h5", by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask"]) #Load COCO weights
+# dataset_train.prepare()
+# dataset_val = VesselDataset()
+# dataset_val.load_images("raws", is_train=False)
+# dataset_val.prepare()
 
-#Train
-model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=20, layers='heads') #Train only head layers
-# model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=90, layers='all') #Train all layers
+# model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR) #Create MaskRCNN model object
+# model.load_weights("mask_rcnn_coco.h5", by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask"]) #Load COCO weights
+
+# #Train
+# model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=20, layers='heads') #Train only head layers
+# # model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=90, layers='all') #Train all layers
