@@ -37,8 +37,6 @@ class VesselConfig(Config):
     NAME = "vessels"
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
-    IMAGE_CHANNEL_COUNT = 1
-    MEAN_PIXEL = np.array([128])
     NUM_CLASSES = 1 + 1 # background + vessel(s)
     IMAGE_MIN_DIM = 256
     IMAGE_MAX_DIM = 256
@@ -96,14 +94,12 @@ class VesselDataset(utils.Dataset):
             _type_: _description_
         """
         #Read mask
-        mask = cv2.imread(self.image_info[image_id]["mask_path"], cv2.IMREAD_GRAYSCALE).astype(np.uint8)
-        #Must keep the [H,W,x] dimensions!
-        mask = np.expand_dims(mask, axis=-1)
+        mask = cv2.imread(self.image_info[image_id]["mask_path"]).astype(np.int32)
         #Class ID array
         class_id_array = np.ones([mask.shape[-1]], dtype=np.int32)
 
         #Return mask and the corresponding class ID array
-        return mask.astype(bool), class_id_array
+        return mask, class_id_array
 
     def image_reference(self, image_id):
         """Return path of the image.
@@ -118,12 +114,10 @@ class VesselDataset(utils.Dataset):
         return info["path"]
     
     def load_image(self, image_id):
-        """Load the specified image and return a [H,W,1] Numpy array.
+        """Load the specified image and return a [H,W,3] Numpy array.
         """
         # Load image
-        image = cv2.imread(self.image_info[image_id]["path"], cv2.IMREAD_GRAYSCALE)
-        #Must keep the [H,W,x] dimensions!
-        image = np.expand_dims(image, axis=-1)
+        image = cv2.imread(self.image_info[image_id]["path"]).astype(np.int32)
         return image
 ############################################################
 #  Run
@@ -140,11 +134,14 @@ dataset_val = VesselDataset()
 dataset_val.load_dataset(DATASET_DIR, is_train=False)
 dataset_val.prepare()
 
-#Create MaskRCNN model object
-model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR)
-#Load COCO weights
-model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask", "conv1"])
+image = dataset_train.load_image(0)
+mask, classids = dataset_train.load_mask(0)
+pass
+# #Create MaskRCNN model object
+# model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR)
+# #Load COCO weights
+# model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask", "conv1"])
 
-#Train
-# model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='heads') #Train only head layers
-model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='all') #Train all layers
+# #Train
+# # model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='heads') #Train only head layers
+# model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='all') #Train all layers
