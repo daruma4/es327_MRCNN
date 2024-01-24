@@ -39,8 +39,8 @@ class VesselConfig(Config):
     DETECTION_MIN_CONFIDENCE = 0.5
     #Hyper Parameters
     LEARNING_RATE = 0.001
-    STEPS_PER_EPOCH = 100
-    VALIDATION_STEPS = 50
+    STEPS_PER_EPOCH = 25
+    VALIDATION_STEPS = 5
 
 ############################################################
 #  Dataset
@@ -100,25 +100,31 @@ class VesselDataset(utils.Dataset):
         image = cv2.imread(self.image_info[image_id]["path"]).astype(np.int32)
         return image
 ############################################################
-#  Run
+#  Train
 ############################################################
 
-config = VesselConfig()
+def train():
+    config = VesselConfig()
 
-#Training dataset
-dataset_train = VesselDataset()
-dataset_train.load_dataset(DATASET_DIR, is_train=True)
-dataset_train.prepare()
-#Validation dataset
-dataset_val = VesselDataset()
-dataset_val.load_dataset(DATASET_DIR, is_train=False)
-dataset_val.prepare()
+    #Training dataset
+    dataset_train = VesselDataset()
+    dataset_train.load_dataset(DATASET_DIR, is_train=True)
+    dataset_train.prepare()
+    #Validation dataset
+    dataset_val = VesselDataset()
+    dataset_val.load_dataset(DATASET_DIR, is_train=False)
+    dataset_val.prepare()
 
-#Create MaskRCNN model object
-model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR)
-#Load COCO weights
-model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask"])
+    #Create MaskRCNN model object
+    model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR)
+    #Load COCO weights
+    model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask"])
 
-#Train
-model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='heads') #Train only head layers
-# model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='all') #Train all layers
+    #Train
+    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=3, layers='heads') #Train only head layers
+    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=3, layers='all') #Train all layers
+
+    #Save
+    model_save_path = os.path.join(DEFAULT_LOGS_DIR, "mask_rcnn_quick.h5")
+    model.keras_model.save_weights(model_save_path)
+
