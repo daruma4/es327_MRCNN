@@ -19,10 +19,6 @@ DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 # Path to dataset
 DATASET_DIR = "raws"
 
-#Counts ROUGHS
-TRAIN_IMAGE_COUNT = 660
-VALIDATION_IMAGE_COUNT = 250
-
 ############################################################
 #  Configurations
 ############################################################
@@ -40,9 +36,9 @@ class VesselConfig(Config):
     NUM_CLASSES = 1 + 1 # background + vessel(s)
     IMAGE_MIN_DIM = 256
     IMAGE_MAX_DIM = 256
-
+    DETECTION_MIN_CONFIDENCE = 0.5
     #Hyper Parameters
-    LEARNING_RATE = 0.001
+    LEARNING_RATE = 0.0001
     STEPS_PER_EPOCH = 100
     VALIDATION_STEPS = 50
 
@@ -57,11 +53,7 @@ class VesselDataset(utils.Dataset):
         utils (_type_): _description_
     """
     def load_dataset(self, dataset_dir, is_train: bool):
-        """Load training and validation images from 
-
-        Args:
-            dataset_dir (_type_): _description_
-            is_train (bool): _description_
+        """Load training and validation images
         """
         # Add class(es)
         self.add_class("vessels", 1, "vessel")
@@ -86,12 +78,6 @@ class VesselDataset(utils.Dataset):
     
     def load_mask(self, image_id: int):
         """Returns mask(s) and class_id for each mask.
-
-        Args:
-            image_id (int): _description_
-
-        Returns:
-            _type_: _description_
         """
         #Read mask
         mask = cv2.imread(self.image_info[image_id]["mask_path"]).astype(np.int32)
@@ -99,16 +85,10 @@ class VesselDataset(utils.Dataset):
         class_id_array = np.ones([mask.shape[-1]], dtype=np.int32)
 
         #Return mask and the corresponding class ID array
-        return mask, class_id_array
+        return mask.astype(bool), class_id_array
 
     def image_reference(self, image_id):
         """Return path of the image.
-
-        Args:
-            image_id (int): _description_
-
-        Returns:
-            _type_: _description_
         """
         info = self.image_info[image_id]
         return info["path"]
@@ -134,14 +114,11 @@ dataset_val = VesselDataset()
 dataset_val.load_dataset(DATASET_DIR, is_train=False)
 dataset_val.prepare()
 
-image = dataset_train.load_image(0)
-mask, classids = dataset_train.load_mask(0)
-pass
-# #Create MaskRCNN model object
-# model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR)
-# #Load COCO weights
-# model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask", "conv1"])
+#Create MaskRCNN model object
+model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR)
+#Load COCO weights
+model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask"])
 
-# #Train
-# # model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='heads') #Train only head layers
+#Train
+model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='heads') #Train only head layers
 # model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='all') #Train all layers
