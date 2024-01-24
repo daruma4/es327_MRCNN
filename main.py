@@ -38,7 +38,7 @@ class VesselConfig(Config):
     IMAGE_MAX_DIM = 256
     DETECTION_MIN_CONFIDENCE = 0.5
     #Hyper Parameters
-    LEARNING_RATE = 0.0001
+    LEARNING_RATE = 0.001
     STEPS_PER_EPOCH = 100
     VALIDATION_STEPS = 50
 
