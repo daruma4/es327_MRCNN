@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 # Import Mask RCNN
 from mrcnn.config import Config
@@ -42,6 +43,11 @@ class VesselConfig(Config):
     STEPS_PER_EPOCH = 25
     VALIDATION_STEPS = 5
 
+class VesselInferenceConfig(VesselConfig):
+    GPU_COUNT = 1
+    IMAGES_PER_GPU = 1
+    # IMAGE_RESIZE_MODE = "pad64"
+    DETECTION_MIN_CONFIDENCE = 0.7 # Detection threshold
 ############################################################
 #  Dataset
 ############################################################
@@ -128,3 +134,28 @@ def train():
     model_save_path = os.path.join(DEFAULT_LOGS_DIR, "mask_rcnn_quick.h5")
     model.keras_model.save_weights(model_save_path)
 
+############################################################
+#  Inference
+############################################################
+
+def infer():
+    #Load dataset
+    dataset_val = VesselDataset()
+    dataset_val.load_dataset(DATASET_DIR, is_train=False)
+    dataset_val.prepare()
+
+    #Generate inference config
+    config = VesselInferenceConfig()
+    #Create inference model
+    model = modellib.MaskRCNN(mode="inference", config=config, model_dir=DEFAULT_LOGS_DIR)
+    #Load trained weights
+    weights_path = os.path.join(DEFAULT_LOGS_DIR, "mask_rcnn_quick.h5")
+    model.load_weights(weights_path, by_name=True)
+
+    class_names = ["BG", "vessel"]
+    image_id = random.choice(dataset_val.image_ids)
+    image = dataset_val.load_image(image_id=image_id)
+    r = model.detect([image])[0]
+    visualize.display_instances(image, r['rois'], r['masks'], r['class_ids'],class_names, r['scores'])
+
+infer()
