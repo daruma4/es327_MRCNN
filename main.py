@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 # Import Mask RCNN
 from mrcnn.config import Config
@@ -19,10 +20,6 @@ DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 # Path to dataset
 DATASET_DIR = "raws"
 
-#Counts ROUGHS
-TRAIN_IMAGE_COUNT = 660
-VALIDATION_IMAGE_COUNT = 250
-
 ############################################################
 #  Configurations
 ############################################################
@@ -37,17 +34,20 @@ class VesselConfig(Config):
     NAME = "vessels"
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
-    IMAGE_CHANNEL_COUNT = 1
-    MEAN_PIXEL = np.array([128])
     NUM_CLASSES = 1 + 1 # background + vessel(s)
     IMAGE_MIN_DIM = 256
     IMAGE_MAX_DIM = 256
-
+    DETECTION_MIN_CONFIDENCE = 0.5
     #Hyper Parameters
     LEARNING_RATE = 0.001
-    STEPS_PER_EPOCH = 100
-    VALIDATION_STEPS = 50
+    STEPS_PER_EPOCH = 25
+    VALIDATION_STEPS = 5
 
+class VesselInferenceConfig(VesselConfig):
+    GPU_COUNT = 1
+    IMAGES_PER_GPU = 1
+    # IMAGE_RESIZE_MODE = "pad64"
+    DETECTION_MIN_CONFIDENCE = 0.7 # Detection threshold
 ############################################################
 #  Dataset
 ############################################################
@@ -59,11 +59,7 @@ class VesselDataset(utils.Dataset):
         utils (_type_): _description_
     """
     def load_dataset(self, dataset_dir, is_train: bool):
-        """Load training and validation images from 
-
-        Args:
-            dataset_dir (_type_): _description_
-            is_train (bool): _description_
+        """Load training and validation images
         """
         # Add class(es)
         self.add_class("vessels", 1, "vessel")
@@ -88,17 +84,9 @@ class VesselDataset(utils.Dataset):
     
     def load_mask(self, image_id: int):
         """Returns mask(s) and class_id for each mask.
-
-        Args:
-            image_id (int): _description_
-
-        Returns:
-            _type_: _description_
         """
         #Read mask
-        mask = cv2.imread(self.image_info[image_id]["mask_path"], cv2.IMREAD_GRAYSCALE).astype(np.uint8)
-        #Must keep the [H,W,x] dimensions!
-        mask = np.expand_dims(mask, axis=-1)
+        mask = cv2.imread(self.image_info[image_id]["mask_path"]).astype(np.int32)
         #Class ID array
         class_id_array = np.ones([mask.shape[-1]], dtype=np.int32)
 
@@ -107,44 +95,67 @@ class VesselDataset(utils.Dataset):
 
     def image_reference(self, image_id):
         """Return path of the image.
-
-        Args:
-            image_id (int): _description_
-
-        Returns:
-            _type_: _description_
         """
         info = self.image_info[image_id]
         return info["path"]
     
     def load_image(self, image_id):
-        """Load the specified image and return a [H,W,1] Numpy array.
+        """Load the specified image and return a [H,W,3] Numpy array.
         """
         # Load image
-        image = cv2.imread(self.image_info[image_id]["path"], cv2.IMREAD_GRAYSCALE)
-        #Must keep the [H,W,x] dimensions!
-        image = np.expand_dims(image, axis=-1)
+        image = cv2.imread(self.image_info[image_id]["path"]).astype(np.int32)
         return image
 ############################################################
-#  Run
+#  Train
 ############################################################
 
-config = VesselConfig()
+def train():
+    config = VesselConfig()
 
-#Training dataset
-dataset_train = VesselDataset()
-dataset_train.load_dataset(DATASET_DIR, is_train=True)
-dataset_train.prepare()
-#Validation dataset
-dataset_val = VesselDataset()
-dataset_val.load_dataset(DATASET_DIR, is_train=False)
-dataset_val.prepare()
+    #Training dataset
+    dataset_train = VesselDataset()
+    dataset_train.load_dataset(DATASET_DIR, is_train=True)
+    dataset_train.prepare()
+    #Validation dataset
+    dataset_val = VesselDataset()
+    dataset_val.load_dataset(DATASET_DIR, is_train=False)
+    dataset_val.prepare()
 
-#Create MaskRCNN model object
-model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR)
-#Load COCO weights
-model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask", "conv1"])
+    #Create MaskRCNN model object
+    model = modellib.MaskRCNN(mode="training", config=config, model_dir=DEFAULT_LOGS_DIR)
+    #Load COCO weights
+    model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask"])
 
-#Train
-# model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='heads') #Train only head layers
-model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=15, layers='all') #Train all layers
+    #Train
+    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=3, layers='heads') #Train only head layers
+    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=3, layers='all') #Train all layers
+
+    #Save
+    model_save_path = os.path.join(DEFAULT_LOGS_DIR, "mask_rcnn_quick.h5")
+    model.keras_model.save_weights(model_save_path)
+
+############################################################
+#  Inference
+############################################################
+
+def infer():
+    #Load dataset
+    dataset_val = VesselDataset()
+    dataset_val.load_dataset(DATASET_DIR, is_train=False)
+    dataset_val.prepare()
+
+    #Generate inference config
+    config = VesselInferenceConfig()
+    #Create inference model
+    model = modellib.MaskRCNN(mode="inference", config=config, model_dir=DEFAULT_LOGS_DIR)
+    #Load trained weights
+    weights_path = os.path.join(DEFAULT_LOGS_DIR, "mask_rcnn_quick.h5")
+    model.load_weights(weights_path, by_name=True)
+
+    class_names = ["BG", "vessel"]
+    image_id = random.choice(dataset_val.image_ids)
+    image = dataset_val.load_image(image_id=image_id)
+    r = model.detect([image])[0]
+    visualize.display_instances(image, r['rois'], r['masks'], r['class_ids'],class_names, r['scores'])
+
+infer()
