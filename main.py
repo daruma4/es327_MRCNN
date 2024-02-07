@@ -40,8 +40,8 @@ class VesselConfig(Config):
     DETECTION_MIN_CONFIDENCE = 0.8
     #Hyper Parameters
     LEARNING_RATE = 0.001
-    STEPS_PER_EPOCH = 25
-    VALIDATION_STEPS = 5
+    STEPS_PER_EPOCH = 100
+    VALIDATION_STEPS = 50
 
 class VesselInferenceConfig(VesselConfig):
     GPU_COUNT = 1
