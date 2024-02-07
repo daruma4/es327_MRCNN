@@ -37,7 +37,7 @@ class VesselConfig(Config):
     NUM_CLASSES = 1 + 1 # background + vessel(s)
     IMAGE_MIN_DIM = 256
     IMAGE_MAX_DIM = 256
-    DETECTION_MIN_CONFIDENCE = 0.5
+    DETECTION_MIN_CONFIDENCE = 0.8
     #Hyper Parameters
     LEARNING_RATE = 0.001
     STEPS_PER_EPOCH = 25
@@ -47,7 +47,7 @@ class VesselInferenceConfig(VesselConfig):
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
     # IMAGE_RESIZE_MODE = "pad64"
-    DETECTION_MIN_CONFIDENCE = 0.7 # Detection threshold
+    DETECTION_MIN_CONFIDENCE = 0.8 # Detection threshold
 ############################################################
 #  Dataset
 ############################################################
@@ -131,7 +131,7 @@ def train():
     model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=3, layers='all') #Train all layers
 
     #Save
-    model_save_path = os.path.join(DEFAULT_LOGS_DIR, "mask_rcnn_quick.h5")
+    model_save_path = os.path.join(DEFAULT_LOGS_DIR, f"mask_rcnn_lr_{config.LEARNING_RATE}_spe_{config.STEPS_PER_EPOCH}_vs_{config.VALIDATION_STEPS}_dmc_{config.DETECTION_MIN_CONFIDENCE}.h5")
     model.keras_model.save_weights(model_save_path)
 
 ############################################################
@@ -157,5 +157,3 @@ def infer():
     image = dataset_val.load_image(image_id=image_id)
     r = model.detect([image])[0]
     visualize.display_instances(image, r['rois'], r['masks'], r['class_ids'],class_names, r['scores'])
-
-infer()
