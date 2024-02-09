@@ -128,12 +128,18 @@ def train():
 
     #Train
     model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=30, layers='heads') #Train only head layers
-    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=90, layers='all') #Train all layers
-
-    #Save
-    model_save_path = os.path.join(DEFAULT_LOGS_DIR, f"mask_rcnn_lr_{config.LEARNING_RATE}_spe_{config.STEPS_PER_EPOCH}_vs_{config.VALIDATION_STEPS}_dmc_{config.DETECTION_MIN_CONFIDENCE}.h5")
+    #Intermediary Save
+    model_save_path = os.path.join(DEFAULT_LOGS_DIR, f"mask_rcnn_heads_lr_{config.LEARNING_RATE}_spe_{config.STEPS_PER_EPOCH}_vs_{config.VALIDATION_STEPS}_dmc_{config.DETECTION_MIN_CONFIDENCE}.h5")
     model.keras_model.save_weights(model_save_path)
 
+    #Train
+    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=90, layers='all') #Train all layers
+
+    #Final Save
+    model_save_path = os.path.join(DEFAULT_LOGS_DIR, f"mask_rcnn_all_lr_{config.LEARNING_RATE}_spe_{config.STEPS_PER_EPOCH}_vs_{config.VALIDATION_STEPS}_dmc_{config.DETECTION_MIN_CONFIDENCE}.h5")
+    model.keras_model.save_weights(model_save_path)
+
+train()
 ############################################################
 #  Inference
 ############################################################
