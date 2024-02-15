@@ -20,6 +20,8 @@ DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 # Path to dataset
 DATASET_DIR = "raws"
 
+random.seed(2024)
+
 ############################################################
 #  Configurations
 ############################################################
@@ -58,29 +60,46 @@ class VesselDataset(utils.Dataset):
     Args:
         utils (_type_): _description_
     """
-    def load_dataset(self, dataset_dir, is_train: bool):
+    def load_dataset(self, dataset_dir, is_train: bool, val_split=0.25):
         """Load training and validation images
+
+        Assumes constant random.seed
         """
         # Add class(es)
         self.add_class("vessels", 1, "vessel")
+        # Mask paths
+        mask_dir = os.path.join(ROOT_DIR, "masks")
 
         #Get image IDs from directory names
         image_ids = next(os.walk(os.path.join(ROOT_DIR, dataset_dir)))[2]
+        #
+        val_count = int(len(image_ids)* val_split)
+        validationIndexes = random.sample(range(0, len(image_ids)), val_count)
 
-        #Add images
-        for idx, image_id in enumerate(image_ids):
-            if is_train and idx >= int(len(image_ids)*0.75):
-                continue
-            if not is_train and idx < int(len(image_ids)*0.75):
-                continue
-            mask_dir = os.path.join(ROOT_DIR, "masks")
-            mask_file_name = "m" + image_id[1:]
-            self.add_image(
-                source="vessels",
-                image_id=image_id,
-                mask_path=os.path.join(mask_dir, mask_file_name),
-                path=os.path.join(dataset_dir, image_id)
-            )
+        #Add validation dataset
+        if is_train is False:
+            for idx in validationIndexes:
+                image_id = image_ids[idx]
+                mask_file_name = "m" + image_id[1:]
+                self.add_image(
+                    source="vessels",
+                    image_id=image_id,
+                    mask_path=os.path.join(mask_dir, mask_file_name),
+                    path=os.path.join(dataset_dir, image_id)
+                )
+            return
+        #Add training dataset
+        if is_train is True:
+            for idx, val in enumerate(image_ids):
+                if idx not in validationIndexes:
+                    image_id = image_ids[idx]
+                    mask_file_name = "m" + image_id[1:]
+                    self.add_image(
+                        source="vessels",
+                        image_id=image_id,
+                        mask_path=os.path.join(mask_dir, mask_file_name),
+                        path=os.path.join(dataset_dir, image_id)
+                    )
     
     def load_mask(self, image_id: int):
         """Returns mask(s) and class_id for each mask.
@@ -116,7 +135,7 @@ def train():
     dataset_train = VesselDataset()
     dataset_train.load_dataset(DATASET_DIR, is_train=True)
     dataset_train.prepare()
-    #Validation dataset
+    #Validation dataset 
     dataset_val = VesselDataset()
     dataset_val.load_dataset(DATASET_DIR, is_train=False)
     dataset_val.prepare()
@@ -127,13 +146,13 @@ def train():
     model.load_weights(COCO_MODEL_PATH, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc","mrcnn_bbox", "mrcnn_mask"])
 
     #Train
-    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=30, layers='heads') #Train only head layers
+    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=20, layers='heads') #Train only head layers
     #Intermediary Save
     model_save_path = os.path.join(DEFAULT_LOGS_DIR, f"mask_rcnn_heads_lr_{config.LEARNING_RATE}_spe_{config.STEPS_PER_EPOCH}_vs_{config.VALIDATION_STEPS}_dmc_{config.DETECTION_MIN_CONFIDENCE}.h5")
     model.keras_model.save_weights(model_save_path)
 
     #Train
-    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=90, layers='all') #Train all layers
+    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=45, layers='all') #Train all layers
 
     #Final Save
     model_save_path = os.path.join(DEFAULT_LOGS_DIR, f"mask_rcnn_all_lr_{config.LEARNING_RATE}_spe_{config.STEPS_PER_EPOCH}_vs_{config.VALIDATION_STEPS}_dmc_{config.DETECTION_MIN_CONFIDENCE}.h5")
@@ -155,7 +174,7 @@ def infer():
     #Create inference model
     model = modellib.MaskRCNN(mode="inference", config=config, model_dir=DEFAULT_LOGS_DIR)
     #Load trained weights
-    weights_path = os.path.join(DEFAULT_LOGS_DIR, "mask_rcnn_quick.h5")
+    weights_path = os.path.join(DEFAULT_LOGS_DIR, "mask_rcnn_all_lr_0.001_spe_100_vs_50_dmc_0.8.h5")
     model.load_weights(weights_path, by_name=True)
 
     class_names = ["BG", "vessel"]
